@@ -18,7 +18,7 @@
         errores.push('La edad debe ser un número entero entre 0 y 120.');
     }
 
-    // 3. Tipo: estrictamente "estudiante", "profesional" o "invitado"
+    // 3. Tipos validos "estudiante", "profesional" o "invitado"
     const tiposValidos = ['estudiante', 'profesional', 'invitado'];
     if (!tiposValidos.includes(datos.tipo)) {
         errores.push('El tipo de participante no es válido.');
