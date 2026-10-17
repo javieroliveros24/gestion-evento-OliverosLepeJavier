@@ -1,0 +1,111 @@
+    <!doctype html>
+    <html lang="es">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Participantes - UD1</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <script src="js/logica.js" defer></script>
+    <script src="js/cookies.js" defer></script>
+    <script src="js/preferencias.js" defer></script>
+    <script src="js/app.js" defer></script>
+    </head>
+    <body>
+    <header>
+        <h1>Gestor de Participantes</h1>
+        <nav>
+        <button id="btn-ayuda" type="button">Abrir Ayuda</button>
+        <button id="btn-cerrar-ayuda" type="button">Cerrar Ayuda</button>
+        </nav>
+    </header>
+
+    <main>
+        <section class="caja-seccion">
+        <h2>Preferencias Visuales</h2>
+        <form id="form-preferencias">
+            <label for="select-tema">Tema:</label>
+            <select id="select-tema">
+            <option value="claro">Claro</option>
+            <option value="oscuro">Oscuro</option>
+            </select>
+
+            <label for="select-tamano">Tamaño de Letra:</label>
+            <select id="select-tamano">
+            <option value="normal">Normal</option>
+            <option value="grande">Grande</option>
+            </select>
+
+            <button type="submit">Guardar Preferencias</button>
+            <button id="btn-restablecer-pref" type="button">Restablecer</button>
+        </form>
+        <p id="msg-preferencias" role="status"></p>
+        </section>
+
+        <section class="caja-seccion">
+        <h2>Alta de Participante</h2>
+        <form id="form-alta" novalidate>
+            <label for="nombre">Nombre Completo:</label>
+            <input id="nombre" name="nombre" required>
+
+            <label for="edad">Edad:</label>
+            <input id="edad" type="number" name="edad" min="0" max="120" required>
+
+            <label for="tipo">Tipo:</label>
+            <select id="tipo" name="tipo">
+            <option value="estudiante">Estudiante</option>
+            <option value="profesional">Profesional</option>
+            <option value="invitado">Invitado</option>
+            </select>
+
+            <label for="modalidad">Modalidad:</label>
+            <select id="modalidad" name="modalidad">
+            <option value="presencial">Presencial</option>
+            <option value="online">Online</option>
+            </select>
+
+            <label for="experiencia">Experiencia (0-10):</label>
+            <input id="experiencia" type="number" step="0.1" name="experiencia" required>
+
+            <button type="submit">Registrar Participante</button>
+        </form>
+        <div id="errores-alta" class="mensajes-error" role="alert"></div>
+        </section>
+
+        <section class="caja-seccion">
+        <h2>Filtros y Búsqueda</h2>
+        <input id="busqueda-nombre" placeholder="Buscar por nombre...">
+        <select id="filtro-modalidad">
+            <option value="todas">Todas las modalidades</option>
+            <option value="presencial">Presencial</option>
+            <option value="online">Online</option>
+        </select>
+        </section>
+
+        <section class="caja-seccion">
+        <h2>Listado de Inscritos</h2>
+        <div id="contenedor-tarjetas"></div>
+        <p id="msg-sin-coincidencias" class="oculto">No se encontraron participantes con los filtros seleccionados.</p>
+        </section>
+
+        <section class="caja-seccion">
+        <h2>Estadísticas Globales</h2>
+        <div id="panel-stats"></div>
+        </section>
+
+        <section class="caja-seccion">
+        <h2>Intercambio de Datos (JSON)</h2>
+        <textarea id="json-area" rows="6" placeholder="Pega un JSON de participantes aquí..."></textarea>
+        <div>
+            <button id="btn-exportar" type="button">Exportar JSON</button>
+            <button id="btn-importar" type="button">Importar JSON</button>
+        </div>
+        <p id="msg-json-estado" role="status"></p>
+        </section>
+
+        <section class="caja-seccion">
+        <h2>Panel del Evento (Iframe)</h2>
+        <iframe id="iframe-panel" src="panel.html" title="Panel de Resumen del Evento"></iframe>
+        </section>
+    </main>
+    </body>
+    </html>
