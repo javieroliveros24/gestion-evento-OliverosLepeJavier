@@ -1,3 +1,4 @@
+# Conversación con la IA Geminis https://gemini.google.com/app/ce9b7f7b5caa10b0?utm_source=app_launcher&utm_medium=owned&utm_campaign=base_all(acceso en drive como lector a Manuel Granados)
 # Javier Oliveros Lepe
 # Memoria Técnica y Documentación del Proyecto: Gestor de Participantes de un Evento
 
