@@ -1,269 +1,314 @@
-# Conversación con la IA Geminis 
-https://gemini.google.com/app/c0e348d9ec138928
-# Javier Oliveros Lepe
-# Memoria Técnica y Documentación del Proyecto: Gestor de Participantes de un Evento
+# Gestor de participantes de un evento
 
-- **Asignatura:** Desarrollo Web en Entorno Cliente (DWEC)
-- **Unidad Didáctica:** UD1 (Sesiones 1 a 7)
-- **Curso Académico:** 2026-2027
-- **Fecha Límite de Entrega:** Viernes 16 de Octubre de 2026 a las 23:59
-- **Autor / Repositorio:** Proyecto entregado vía GitHub
+**Autor:** Javier Oliveros Lepe
+**Módulo:** Desarrollo Web en Entorno Cliente (DWEC) · Unidad didáctica 1 (sesiones 1 a 7) · Curso 2026-2027
+
+Aplicación cliente (HTML, CSS y JavaScript sin frameworks) para gestionar las inscripciones de un evento tecnológico: altas y bajas de participantes, búsqueda y filtro, estadísticas, exportación e importación JSON, panel resumen en un iframe comunicado por `postMessage`, preferencias guardadas en cookies y ventana de ayuda.
 
 ---
 
-## 1. Guía de Ejecución y Entorno de Desarrollo
+## Índice
 
-Esta aplicación se ha desarrollado utilizando tecnologías estándar del entorno cliente: HTML5, CSS3 y JavaScript moderno en su versión ECMAScript 6+. Toda la lógica del sistema se ejecuta directamente en el navegador web del usuario, sin depender de entornos de ejecución en servidor como Node.js ni de frameworks externos.
-
-### Instrucciones de Despliegue Local mediante Servidor HTTP
-Debido a las políticas de seguridad del navegador relacionadas con la Política del Mismo Origen (Same-Origin Policy), el almacenamiento de cookies persistentes, la apertura de contexto mediante scripts y el intercambio de mensajes asíncronos con iframes a través de postMessage, la aplicación debe servirse obligatoriamente mediante el protocolo HTTP o HTTPS. Abrir directamente el documento index.html mediante el protocolo file:// provocará un bloqueo de seguridad por parte del navegador.
-
-#### Opción Recomendada: Live Server en Visual Studio Code
-1. Abrir la carpeta raíz del proyecto gestion-evento dentro del editor Visual Studio Code.
-2. Hacer clic derecho sobre el archivo index.html en el explorador de archivos.
-3. Seleccionar la opción "Open with Live Server".
-4. El navegador predeterminado se abrirá automáticamente en la dirección de bucle local http://127.0.0.1:5500/index.html o http://localhost:5500/index.html.
-
-#### Opción Alternativa: Servidor HTTP de Node.js (npx serve)
-1. Abrir una terminal o consola de comandos en la ruta raíz del proyecto.
-2. Ejecutar el comando: npx serve .
-3. Copiar la dirección URL provista en la consola (habitualmente http://localhost:3000) e introducirla en la barra de direcciones del navegador.
+1. [Ejecución por HTTP](#1-ejecución-por-http)
+2. [Estructura del proyecto](#2-estructura-del-proyecto)
+3. [Cómo se ha realizado cada funcionalidad](#3-cómo-se-ha-realizado-cada-funcionalidad)
+4. [Casos de prueba](#4-casos-de-prueba)
+5. [Contenidos aplicados de las sesiones 1 a 7](#5-contenidos-aplicados-de-las-sesiones-1-a-7)
+6. [Evidencias de depuración y de red](#6-evidencias-de-depuración-y-de-red)
+7. [Uso de la inteligencia artificial](#7-uso-de-la-inteligencia-artificial)
 
 ---
 
-## 2. Estructura y Arquitectura del Código Fuente
+## 1. Ejecución por HTTP
 
-El proyecto se ha organizado siguiendo el principio de separación de responsabilidades. La estructura de archivos del repositorio es la siguiente:
+La aplicación **no debe abrirse con `file://`**: con ese esquema el origen es `null`, así que `postMessage` con un `targetOrigin` concreto no funciona y las cookies no se guardan. Hay que servir la carpeta con un servidor HTTP de archivos estáticos, de modo que `index.html`, `panel.html` y `ayuda.html` compartan host y puerto (mismo origen).
 
-- **index.html**: Documento principal que contiene la estructura semántica de la interfaz del usuario, los formularios de entrada, los contenedores de listados, el panel de estadísticas, el área de intercambio de datos JSON y el elemento iframe incrustado.
-- **panel.html**: Documento independiente que se carga dentro del iframe de la página principal. Actúa como un cuadro de mandos con su propio contexto de ejecución y su propio DOM.
-- **ayuda.html**: Documento emergente que se abre en un contexto de navegación secundario mediante scripts. Expone información diagnóstica sobre el entorno del navegador.
-- **css/estilos.css**: Hoja de estilos encargada de la presentación visual, la disposición adaptable mediante Flexbox/Grid y las reglas de diseño para los temas visuales (claro y oscuro) y tamaños de tipografía.
-- **js/logica.js**: Módulo que reúne exclusivamente las funciones puras de la lógica de negocio (validación de datos, generación de identificadores únicos y cálculo numérico de estadísticas). No lee ni modifica el DOM.
-- **js/cookies.js**: Módulo encargado de gestionar el almacenamiento persistente en el navegador mediante document.cookie (lectura, escritura codificada y caducidad explícita).
-- **js/preferencias.js**: Módulo que controla la carga y aplicación de los temas visuales y dimensiones de letra del usuario en función del almacenamiento de cookies.
-- **js/panel.js**: Script que se ejecuta dentro de panel.html. Implementa la escucha de mensajes por postMessage y la renderización de su interfaz interna.
-- **js/app.js**: Controlador principal de la interfaz. Coordina los eventos de usuario, interactúa con el DOM, invoca a las funciones de lógica y sincroniza los datos con el iframe.
+Cualquiera de estas opciones sirve, ejecutada en la carpeta raíz del proyecto:
 
----
+| Opción | Comando / acción | Dirección |
+|---|---|---|
+| Python 3 | `python3 -m http.server 8000` | http://localhost:8000/ |
+| Node.js | `npx serve .` | la que indique la consola (normalmente http://localhost:3000/) |
+| VS Code | Extensión Live Server → clic derecho en `index.html` → *Open with Live Server* | http://127.0.0.1:5500/index.html |
 
-## 3. Justificación y Análisis Técnico de Contenidos (Sesiones 1 a 7)
-
-### Sesión 1: Arquitectura Web Navegador y Carga de Scripts
-La aplicación responde al modelo cliente-servidor, donde el navegador actúa como cliente solicitando recursos y ejecutando código dentro de un entorno aislado de seguridad (sandbox). Para evitar el bloqueo del analizador HTML (HTML Parser) durante la descarga de los archivos JavaScript, todos los elementos script presentes en el documento index.html incorporan el atributo defer. Esto garantiza que la descarga del código se realice en paralelo al análisis del documento y que la ejecución se posponga hasta que el DOM esté completamente construido en memoria, evitando que selecciones como document.getElementById devuelvan valores nulos.
-
-### Sesión 2: Declaraciones, Tipos Primitivos y Operadores
-Se ha erradicado el uso de var debido a sus problemas de ámbito de función y comportamiento poco intuitivo ante el hoisting. En su lugar, se emplea const como primera opción para todos los identificadores que no requieren reasignación, expresando la inmutabilidad de la vinculación. Cuando una variable requiere cambiar su valor a lo largo del tiempo (como contadores y acumuladores), se declara explícitamente mediante let respetando el ámbito de bloque. Las operaciones aritméticas evitan conversiones no deseadas aplicando Number() a las entradas recibidas como texto desde los controles del formulario.
-
-### Sesión 3: Conversiones, Operaciones Lógicas y Toma de Decisiones
-Las comparaciones de igualdad utilizan de forma estricta el operador triple (===) y su desigualdad correspondiente (!==), evitando las conversiones implícitas de tipos que suceden con el operador doble (==). En las evaluaciones condicionales, se contemplan los valores falsy (0, cadena vacía, null, undefined, NaN y false) frente a los valores truthy. Cuando la aplicación debe diferenciar entre un valor omitido (null/undefined) y un valor numérico cero (0, considerado válido para la edad o experiencia), se aplica el operador de coalescencia nula (??) o comprobaciones explícitas en lugar del operador disyuntivo ordinario (||). Las estructuras de decisión incluyen bloques if/else para bifurcaciones complejas, un operador ternario para asignaciones condicionales simples de estatus y un bloque switch para contabilizar las tipologías de inscritos.
-
-### Sesión 4: Control de Flujo Mediante Bucles
-Para el procesamiento iterativo de datos se emplean diversas estructuras de repetición adaptadas a cada necesidad:
-- Bucle for...of: Se utiliza para recorrer la colección de participantes en el cálculo de estadísticas y en la renderización del listado.
-- Bucle do...while: Se aplica en la función de generación de identificadores aleatorios, asegurando que el código genere un número y compruebe su duplicidad al menos una vez, incluyendo un límite máximo de intentos para prevenir bucles infinitos.
-- Instrucción continue: Dentro del cálculo de la experiencia media presencial, el bucle evalúa si la modalidad es online; de ser así, la instrucción continue salta inmediatamente a la siguiente iteración sin sumar los datos.
-- Instrucción break: En la búsqueda del primer participante menor de edad dentro de la colección, una vez localizado el primer caso que cumple la condición, la instrucción break interrumpe inmediatamente el bucle for para optimizar el rendimiento.
-
-### Sesión 5: Objetos Predefinidos de JavaScript y del Navegador
-- Math: Utilizado mediante Math.random() y Math.floor() dentro de la fórmula de generación de números enteros comprendidos en el rango de 100000 a 999999.
-- Date: Empleado para registrar el instante exacto de alta de cada participante en formato de texto estándar ISO (toISOString()) y para formatear la representación visual a la configuración regional española mediante toLocaleString('es-ES').
-- JSON: Aplicado a través de JSON.stringify() para serializar la colección de objetos a texto plano y JSON.parse() para la importación. Las operaciones de lectura se envuelven en bloques try...catch para capturar errores de sintaxis y prevenir la caída de la aplicación.
-- Objetos del Navegador: La ventana emergente de ayuda utiliza propiedades del entorno cliente como navigator.language (idioma del navegador), location.origin (origen del documento) y screen.width junto a screen.height (resolución del monitor).
-
-### Sesión 6: Manipulación Dinámica del Modelo de Objetos del Documento (DOM)
-La representación de los participantes en la interfaz se realiza mediante la creación explícita de nodos en memoria con document.createElement(). La inserción de información textual proveniente de entradas de usuario se realiza estrictamente a través de la propiedad textContent. Se ha descartado intencionadamente el uso de innerHTML para la renderización de datos con el objetivo de eliminar cualquier vector de ataque por Inyección de Código de Terceros (Cross-Site Scripting - XSS). La gestión de estilos se apoya en classList.add(), classList.remove() y classList.toggle(), mientras que la inclusión y eliminación de nodos en el documento visual se efectúa con append() y remove().
-
-### Sesión 7: Contextos de Navegación, Mensajería y Cookies
-- Ventanas Secundarias: La apertura de la ventana ayuda.html se realiza mediante window.open(), guardando la referencia devuelta en una variable global. Se evalúa la propiedad closed para evitar aperturas duplicadas y enfocar la ventana existente mediante focus(), permitiendo además su cierre controlado desde la ventana principal con window.close().
-- Mensajería con Iframe: El intercambio de datos con el documento incrustado panel.html se realiza mediante postMessage. El receptor valida de forma estricta que evento.origin coincida con location.origin y que evento.source provenga del contexto esperado (window.parent o visor.contentWindow), rechazando mensajes anónimos o provenientes de orígenes no autorizados.
-- API de Cookies: La persistencia de preferencias de interfaz (tema visual y dimensión de fuente) se gestiona asignando cadenas formateadas a document.cookie. Cada cookie incluye los atributos Path=/, SameSite=Lax, Secure (cuando la conexión es HTTPS) y una caducidad explícita Max-Age expresada en segundos (2592000 segundos para 30 días de duración). La eliminación de cookies se realiza reescribiendo la clave con el mismo ámbito y estableciendo Max-Age=0.
+No hay lógica de servidor: el servidor solo entrega archivos; todo se ejecuta en el navegador.
 
 ---
 
-## 4. Casos de Prueba y Protocolo de Verificación
+## 2. Estructura del proyecto
 
-A continuación se detallan los procedimientos de prueba desarrollados para verificar el correcto funcionamiento de cada requisito de la práctica:
+```text
+gestion-evento/
+├── index.html          Página principal: formularios, listado, estadísticas, JSON, iframe y preferencias
+├── panel.html          Panel resumen que se carga dentro del iframe
+├── ayuda.html          Ventana de ayuda abierta con window.open
+├── css/
+│   └── estilos.css     Estilos comunes, temas claro/oscuro (variables CSS), tamaño grande, Grid y Flexbox
+└── js/
+    ├── logica.js       Lógica pura (sin DOM): validación, ids, clasificaciones, estadísticas, filtros, resumen del panel
+    ├── cookies.js      leerCookie, guardarCookie, borrarCookie
+    ├── preferencias.js Validación y aplicación de tema y tamaño; guardado y restablecimiento
+    ├── app.js          Interfaz de la página principal: eventos, DOM, JSON, postMessage, ventana de ayuda
+    ├── panel.js        Receptor de mensajes del iframe y construcción de su DOM
+    └── ayuda.js        Datos del navegador en la ventana de ayuda
+```
 
-### Prueba de Validación de Formulario (Entradas Incorrectas)
-- Procedimiento: En el formulario de alta de participantes, introducir el nombre " A " (un solo carácter tras eliminar espacios), la edad "-5" y la experiencia "12". Pulsar el botón de registro.
-- Resultado Esperado: El script detiene el envío del formulario. En la sección de errores se muestran tres mensajes detallados indicando que el nombre debe tener entre 2 y 60 caracteres, la edad debe ser un entero entre 0 y 120, y la experiencia debe ser una cifra entre 0 y 10. No se crea ninguna tarjeta en el DOM ni se altera la colección en memoria.
-
-### Prueba de Validación de Formulario (Límites Mínimos Válidos)
-- Procedimiento: Introducir el nombre "Marta Gómez", edad "0", seleccionar tipo "estudiante", modalidad "online" y experiencia "0". Pulsar el botón de registro.
-- Resultado Esperado: La aplicación acepta la entrada. Se genera un identificador único de 6 dígitos, la edad 0 es clasificada como menor de edad y se dibuja la tarjeta correspondiente. Se recalculan las estadísticas globales y se transmite el nuevo estado al iframe mediante postMessage. El formulario se limpia automáticamente.
-
-### Prueba de Cancelación de Baja de Inscrito
-- Procedimiento: Ubicar una tarjeta de participante existente en el listado y hacer clic en su botón "Eliminar". Cuando aparezca el cuadro de diálogo modal del navegador (confirm), hacer clic en "Cancelar".
-- Resultado Esperado: La llamada a confirm() devuelve false. La tarjeta permanece intacta en el documento HTML, la colección en memoria no sufre modificaciones y las estadísticas se mantienen invariables.
-
-### Prueba de Confirmación de Baja de Inscrito
-- Procedimiento: Hacer clic en el botón "Eliminar" de una tarjeta y en el diálogo modal confirm hacer clic en "Aceptar".
-- Resultado Esperado: La llamada a confirm() devuelve true. El elemento HTML correspondiente a la tarjeta es eliminado del DOM mediante la función remove(), el participante es filtrado del array en memoria y las estadísticas globales (totales, promedios y contadores) se actualizan inmediatamente.
-
-### Prueba de Filtro de Búsqueda Sin Coincidencias
-- Procedimiento: En el campo de búsqueda por nombre escribir "TextoInexistente" y en el selector de modalidad seleccionar "Online".
-- Resultado Esperado: Todas las tarjetas del contenedor se ocultan. La aplicación remueve la clase de ocultación del elemento p con id msg-sin-coincidencias, informando visualmente al usuario de que no hay participantes que cumplan los criterios. El panel de estadísticas superior sigue mostrando los datos de la colección completa.
-
-### Prueba de Importación de JSON Mal Formado
-- Procedimiento: Pegar en el área de texto de datos el siguiente fragmento incompleto: [{"id": 100000, "nombre": "Prueba". Pulsar el botón "Importar JSON".
-- Resultado Esperado: La función JSON.parse() lanza un error de sintaxis que es capturado por el bloque catch. Se muestra un mensaje de error explicativo en pantalla. La colección previa de participantes se conserva íntegramente en memoria sin sufrir ninguna pérdida parcial de datos.
-
-### Prueba de Importación de JSON con Estructura Inválida
-- Procedimiento: Pegar en el área de texto un objeto único en lugar de un array: {"id": 100000, "nombre": "Juan", "edad": 25, "tipo": "profesional", "modalidad": "presencial", "experiencia": 5, "fechaInscripcion": "2026-10-10T10:00:00.000Z"}. Pulsar "Importar JSON".
-- Resultado Esperado: La validación detecta que la estructura no responde a un Array mediante Array.isArray(). Se interrumpe el proceso, se muestra el mensaje de error correspondiente y se mantiene intacto el estado previo.
-
-### Prueba de Importación de Array Vacío
-- Procedimiento: Pegar en el área de texto la cadena [] y pulsar "Importar JSON".
-- Resultado Esperado: La aplicación vacía la colección de participantes. El listado de tarjetas se limpia, el panel de estadísticas pasa a mostrar "Sin datos" o valores en 0, y el iframe recibe la actualización mostrando el mensaje "Sin inscripciones".
-
-### Prueba de Persistencia de Preferencias Mediante Cookies
-- Procedimiento: Seleccionar en el formulario de preferencias el Tema "Oscuro" y el Tamaño de Letra "Grande". Pulsar "Guardar Preferencias". Verificar en las Herramientas de Desarrollo (F12 -> Pestaña Almacenamiento/Cookies) que existen dos entradas dwec_tema y dwec_tamano. Recargar la página mediante F5.
-- Resultado Esperado: Al recargar, el script ejecuta cargarPreferenciasIniciales(), lee las cookies, aplica las clases body.oscuro y body.grande al documento y ajusta los valores seleccionados en los elementos select.
-
-### Prueba de Manipulación de Cookies con Valores No Permitidos
-- Procedimiento: Abrir F12 en el navegador, acceder a las cookies almacenadas y modificar manualmente el valor de dwec_tema introduciendo la cadena "tema_invalido". Recargar la página con F5.
-- Resultado Esperado: La función de lectura evalúa la entrada y, al comprobar mediante un operador ternario que el valor no es estrictamente "oscuro", asigna la opción por defecto "claro", evitando la inyección de clases CSS no controladas.
+Separación de responsabilidades: `logica.js` contiene **solo** funciones que reciben datos por parámetro y devuelven un resultado (`validarParticipante`, `generarId`, `calcularEstadisticas`, `validarColeccion`, `crearResumenPanel`…). No usan `document` ni `window`, por lo que se pueden probar desde la consola con datos inventados. Todo el acceso al DOM está en `app.js`, `preferencias.js`, `panel.js` y `ayuda.js`.
 
 ---
 
-## 5. Uso de Herramientas de Inteligencia Artificial y Análisis de Decisiones
+## 3. Cómo se ha realizado cada funcionalidad
 
-Durante el desarrollo de la práctica se utilizó una Inteligencia Artificial como asistente de consulta técnica, generación de estructuras base y revisión de código.
+### 3.1 Datos en memoria
 
-### Decisiones de Diseño Tomadas a Partir de la Interacción con la IA:
-1. **Separación de Funciones de Lógica e Interfaz:** La propuesta inicial sugería incluir la lectura del DOM dentro de las funciones de cálculo. Se decidió separar el código en módulos, aislando la lógica pura en logica.js para cumplir con las restricciones del enunciado.
-2. **Eliminación del Uso de innerHTML:** Inicialmente la IA generó fragmentos de código que concatenaban cadenas HTML para construir las tarjetas. La propuesta fue rechazada y sustituida por el uso de document.createElement(), textContent y append() para prevenir riesgos de seguridad XSS.
-3. **Mecanismo de Sincronización con el Iframe:** Se descartó el uso de temporizadores arbitrarios (setTimeout) para enviar datos al iframe. En su lugar, se implementó un protocolo de saludo donde el iframe notifica que su receptor está preparado (iframe-preparado) antes de que la página principal le envíe el primer paquete de datos.
+- **Archivo:** `js/app.js` (variable `participantes`).
+- Colección declarada con `let` (se reasigna al importar) y tres participantes de ejemplo con edades (17, 29, 45), tipos (estudiante, profesional, invitado) y modalidades distintas. No se conserva al recargar, tal como pide el enunciado.
+
+### 3.2 Alta y validación
+
+- **Archivos:** `js/logica.js` → `convertirNumero`, `validarParticipante`, `generarId`; `js/app.js` → `gestionarAlta`, `mostrarErroresFormulario`, `limpiarErroresFormulario`.
+- `validarParticipante(datos)` trata los datos como no fiables:
+  - Nombre: `trim()` y longitud entre 2 y 60.
+  - Edad y experiencia: `convertirNumero` comprueba primero el tipo y que la cadena no esté vacía, después aplica un patrón de solo dígitos (rechaza `"18abc"`, `"1e1"`, `"0x10"`, `null`, `true`…) y por último convierte con `Number`. Edad: `Number.isInteger` y rango 0–120 (0 es válido). Experiencia: `Number.isFinite` y rango 0–10 con decimales.
+  - Tipo y modalidad: solo los valores de las listas `TIPOS_VALIDOS` y `MODALIDADES_VALIDAS`.
+  - Devuelve `{ esValido, errores, participante }`, con un mensaje por campo y los datos ya normalizados.
+- Los campos numéricos del formulario son `type="text"` con `inputmode`, para que la validación dependa del JavaScript y no de los atributos HTML (el formulario tiene `novalidate`).
+- Si hay errores, `mostrarErroresFormulario` los escribe **junto a cada campo** y en un **resumen visible**, marca los controles con `aria-invalid` y no toca los valores escritos. Si el alta es correcta, se genera el id, la fecha con `new Date().toISOString()`, se limpia el formulario y se actualizan el listado, las estadísticas y el panel.
+- `generarId(participantes)` usa `Math.random()` dentro de un `do...while` limitado a 1000 intentos; un `for...of` con `break` comprueba si el candidato ya existe. Si se agotan los intentos devuelve `null` (nunca bloquea la pestaña) y la interfaz muestra un error.
+
+### 3.3 Clasificación
+
+- **Archivo:** `js/logica.js` → `clasificarEdad` (ternario: menor si `< 18`), `clasificarExperiencia` (`if/else if/else`: inicial `[0, 4)`, intermedia `[4, 7)`, avanzada `[7, 10]`).
+
+### 3.4 Listado (tarjetas)
+
+- **Archivo:** `js/app.js` → `crearTarjeta`, `crearFilaDato`, `renderizarListado`, `actualizarAvisoListado`.
+- Cada tarjeta es un `<article>` creado con `createElement`, rellenado con `textContent` y montado con `append`; no se usa `innerHTML`.
+- Estados representados con `classList` (`menor-edad`/`mayor-edad`, `experiencia-…`, `modalidad-…`) y atributos `data-id`, `data-edad`, `data-experiencia`. Muestra todos los datos, las dos clasificaciones y la fecha en formato español con `toLocaleString('es-ES', …)`.
+
+### 3.5 Bajas
+
+- **Archivo:** `js/app.js` → `gestionarClicEnListado`, `borrarParticipante`.
+- Un único receptor en el contenedor (delegación de eventos) detecta el botón con `closest`. Se pide confirmación con `confirm`; si se cancela no cambia nada.
+- Si se acepta, el participante se quita de la colección con `splice` y **solo su tarjeta** se elimina con `tarjeta.remove()`; las demás tarjetas no se vuelven a crear. Después se recalculan las estadísticas y se avisa al panel.
+
+### 3.6 Búsqueda y filtro
+
+- **Archivos:** `js/logica.js` → `normalizarTexto`, `cumpleFiltros`; `js/app.js` → `renderizarListado`, `actualizarAvisoListado`.
+- `normalizarTexto` usa métodos de `String` (`trim`, `normalize('NFD')`, `replace`, `toLowerCase`) para que la búsqueda no distinga mayúsculas ni tildes. Se combina con el filtro de modalidad. Si no hay coincidencias se muestra un aviso, y otro distinto si la lista está vacía (se cuentan las tarjetas con `querySelectorAll`).
+
+### 3.7 Estadísticas
+
+- **Archivos:** `js/logica.js` → `calcularEstadisticas`; `js/app.js` → `renderizarEstadisticas`, `formatearMedia`.
+- Se calculan siempre sobre la colección completa con bucles, contadores y acumuladores (sin `reduce`): total, menores y mayores, edad media, mínima y máxima, cantidades por modalidad y por tipo (`switch`).
+- La experiencia media presencial se calcula en un recorrido propio que usa `continue` para saltar los participantes online. El primer menor se busca con un `for` que termina con `break`.
+- Las medias y extremos se devuelven como **números** (o `null` si no hay datos). La interfaz las formatea: `toFixed(2)` para las medias y "Sin datos" cuando el valor es `null`, así que nunca aparece `NaN` ni `Infinity`.
+
+### 3.8 Exportación e importación JSON
+
+- **Archivos:** `js/logica.js` → `validarColeccion`, `esIdValido`, `esFechaIsoValida`; `js/app.js` → `exportarJson`, `importarJson`.
+- Exportar: `JSON.stringify(participantes, null, 2)` en el área de texto.
+- Importar: `JSON.parse` dentro de `try/catch` (el JSON mal formado muestra un mensaje comprensible). `validarColeccion` comprueba que sea un array y que cada elemento sea un objeto con los siete campos y **sus tipos** (texto o número), un id entero en rango y no repetido, una fecha ISO real (formato de `toISOString` y comprobación de ida y vuelta, que rechaza `"10/08/2026"`, `"2026"` o el 31 de febrero) y los mismos rangos que el formulario.
+- La colección solo se sustituye si **todos** los elementos son válidos. Una importación válida (incluido `[]`) actualiza tarjetas, estadísticas y panel.
+
+### 3.9 Panel del evento (iframe y postMessage)
+
+- **Archivos:** `index.html` (iframe con `title` descriptivo), `panel.html`, `js/panel.js` → `esResumenValido`, `pintarResumen`; `js/logica.js` → `crearResumenPanel`; `js/app.js` → `recibirMensajeDelPanel`, `enviarResumenAlPanel`.
+- Protocolo:
+  1. `panel.js` instala su receptor `message` y después envía `{ tipo: 'panel-preparado' }` a `window.parent` con `targetOrigin = location.origin`.
+  2. La página principal (cuyo receptor se instala en cuanto se ejecuta `app.js`) comprueba `origin`, que `source` sea `iframe.contentWindow` y que el mensaje tenga exactamente esa estructura. Entonces marca el panel como preparado y le envía el resumen.
+  3. Cada alta, baja o importación vuelve a enviar el resumen. El `targetOrigin` es siempre `location.origin`, nunca `"*"`.
+- El panel comprueba `origin`, que `source` sea `window.parent`, y la estructura, los tipos y los valores (enteros no negativos, presenciales + online = total, nombre válido, fecha ISO) **antes** de tocar su DOM. Los mensajes inválidos se ignoran sin errores. El panel construye su propio DOM; la página principal nunca accede a su contenido. Sin participantes muestra "Sin inscripciones".
+
+### 3.10 Preferencias con cookies
+
+- **Archivos:** `js/cookies.js` → `leerCookie`, `guardarCookie`, `borrarCookie`, `atributosCookie`; `js/preferencias.js` → `normalizarTema`, `normalizarTamano`, `aplicarPreferencias`, `cargarPreferenciasIniciales`, `guardarPreferencias`, `restablecerPreferencias`; `js/app.js` → `gestionarGuardarPreferencias`, `gestionarRestablecerPreferencias`.
+- Dos cookies independientes, `dwec_tema` y `dwec_tamano`, con `Path=/`, `SameSite=Lax`, `Max-Age=2592000` (30 días en segundos) y `Secure` si la página se sirve por HTTPS. Los valores se codifican con `encodeURIComponent` y se descodifican con `decodeURIComponent` dentro de `try/catch`.
+- Al cargar, los valores se validan (`switch` en `normalizarTema`); si faltan o son inválidos se aplican tema claro y tamaño normal.
+- Al guardar, las preferencias se aplican primero (funcionan durante la visita aunque las cookies estén bloqueadas) y luego **se comprueba leyendo** si se han guardado. Restablecer borra ambas con `Max-Age=0` y el mismo ámbito, aplica los valores predeterminados y **comprueba leyendo** que ya no existen.
+
+### 3.11 Ventana de ayuda
+
+- **Archivos:** `ayuda.html`, `js/ayuda.js`; `js/app.js` → `abrirAyuda`, `cerrarAyuda`.
+- `window.open` guarda la referencia en `ventanaAyuda`. Si sigue abierta (`!ventanaAyuda.closed`) se reutiliza con `focus()`; "Cerrar ayuda" la cierra desde la página principal. Si `window.open` devuelve `null` (bloqueada), se muestra un aviso en la página.
+- La ayuda explica el uso de la aplicación y muestra `navigator.language`, `location.origin` y `screen.width × screen.height` solo como información descriptiva.
 
 ---
 
-## 6. Evidencias de Depuración e Inspección Técnicas
+## 4. Casos de prueba
 
-### Evidencia 1: Punto de Interrupción (Breakpoint) en la Pestaña Sources
-- Configuración: Se ha colocado un punto de interrupción en la primera línea de la función validarParticipante(datos) dentro del archivo js/logica.js.
-- Explicación Técnica: Al enviar el formulario de alta, la ejecución se detiene antes de procesar los datos. Al inspeccionar el panel Scope en DevTools, se observa que la propiedad edad recibida desde el control input de tipo number es de tipo String ("25"). Esto confirma la necesidad de realizar comprobaciones sobre cadenas vacías y aplicar conversiones explícitas con Number() antes de proceder a la validación matemática.
+Todas las pruebas se hacen en el navegador con la aplicación servida por HTTP (apartado 1), partiendo de una carga limpia de la página (3 participantes de ejemplo). Para "recargar limpio" basta con pulsar F5.
 
-### Evidencia 2: Inspección de Red en la Pestaña Network
-- Configuración: Registro de peticiones durante la carga inicial de la página.
-- Explicación Técnica: La pestaña Network muestra la petición HTTP GET del recurso panel.html con un código de respuesta 200 OK y tipo de contenido text/html. Se verifica que todos los recursos estáticos (estilos CSS y archivos JavaScript externos con atributo defer) se cargan sin errores de tipo 404 ni bloqueos por políticas de orígenes cruzados.
+### 4.1 Alta y validación
+
+| Id | Pasos y datos de entrada | Resultado esperado |
+|---|---|---|
+| A1 | Nombre `" A "`, edad `18abc`, experiencia `12`, pulsar **Inscribir participante** | Tres errores junto a sus campos y en el resumen rojo; los campos quedan marcados y conservan lo escrito; siguen 3 tarjetas y las estadísticas no cambian |
+| A2 | Nombre `Pepe`, edad vacía, experiencia `5` | Error en edad; no se añade nadie |
+| A3 | Nombre `Pepe`, edad `17.5`, experiencia `5` | Error "La edad debe ser un número entero entre 0 y 120"; no se añade nadie |
+| A4 | Nombre `Pepe`, edad `121` / experiencia `10.1` / experiencia `7,5` (cada uno por separado) | Error en el campo correspondiente; no se añade nadie |
+| A5 | Nombre `"  Marta Gómez  "`, edad `0`, tipo estudiante, modalidad online, experiencia `0` | Se añade la tarjeta "Marta Gómez" (sin espacios extremos), menor de edad, experiencia inicial, id de 6 dígitos y fecha actual en español. El formulario se limpia, aparece "Marta Gómez se ha inscrito con el id …", las estadísticas pasan a 4 con **edad mínima 0** y el panel a 4 inscritos |
+| A6 | Nombre `Luis`, edad `30`, experiencia `7.5` | Se añade con experiencia "avanzada" |
+| A7 | En la consola: `validarParticipante({nombre:'Ana', edad:null, tipo:'invitado', modalidad:'online', experiencia:true})` | `esValido: false` con errores en edad y experiencia (null y booleanos no se aceptan como números) |
+| A8 | En la consola: `Math.random = () => 0; generarId([{id:100000}])` (recargar después) | Devuelve `null` tras 1000 intentos sin bloquear la pestaña |
+
+### 4.2 Listado y bajas
+
+| Id | Pasos y datos de entrada | Resultado esperado |
+|---|---|---|
+| B1 | Observar la tarjeta de Ana García | Muestra id 483721, 17 años (menor de edad), estudiante, presencial, experiencia 4 (intermedia), "8 de octubre de 2026 a las 10:30" (hora peninsular), borde naranja. En Elements: `class="tarjeta-participante menor-edad experiencia-intermedia modalidad-presencial"` y `data-id="483721"` |
+| B2 | **Dar de baja** en Ana García → **Cancelar** | No cambia nada: 3 tarjetas y las mismas estadísticas |
+| B3 | **Dar de baja** en Ana García → **Aceptar** | Desaparece solo esa tarjeta (en Elements las otras dos son los mismos nodos), las estadísticas pasan a 2, el primer menor pasa a "No hay ningún menor de edad" y el panel a 2 inscritos |
+| B4 | Dar de baja a todos aceptando | Aviso "No hay participantes inscritos." y estadísticas "Sin datos" |
+
+### 4.3 Búsqueda y filtro
+
+| Id | Pasos y datos de entrada | Resultado esperado |
+|---|---|---|
+| C1 | Buscar `ELENA` | Solo Elena Belmonte |
+| C2 | Buscar `garcia` (sin tilde) | Solo Ana García |
+| C3 | Buscar `e` y modalidad **Presencial** | Solo Elena Belmonte (Carlos y Ana no cumplen las dos condiciones) |
+| C4 | Buscar `zzz` | Ninguna tarjeta y aviso "Ningún participante coincide con la búsqueda y el filtro." |
+| C5 | Con el filtro de C4 activo, mirar las estadísticas | Siguen mostrando 3 participantes (colección completa) |
+
+### 4.4 Estadísticas
+
+| Id | Pasos y datos de entrada | Resultado esperado |
+|---|---|---|
+| D1 | Carga inicial | Total 3; menores 1; mayores 2; edad media 30.33; mínima 17; máxima 45; presenciales 2; online 1; estudiantes 1, profesionales 1, invitados 1; experiencia media presencial 3.00 ((4 + 2) / 2, se omite a Carlos, que es online); primer menor Ana García |
+| D2 | Importar `[]` (ver E6) | Total 0; edad media, mínima, máxima y experiencia presencial "Sin datos"; primer menor "No hay ningún menor de edad"; ningún `NaN` ni `Infinity` |
+| D3 | Importar solo participantes online (p. ej. JSON de E7 con modalidad `online` en ambos) | Experiencia media presencial "Sin datos" |
+
+### 4.5 JSON
+
+En todos los casos de error el mensaje termina en "No se ha cambiado nada." y siguen las mismas tarjetas.
+
+| Id | Datos pegados en el área de texto → **Importar** | Resultado esperado |
+|---|---|---|
+| E1 | **Exportar** | Aparece el array de 3 participantes con sangría |
+| E2 | `[{"id": 100000, "nombre": "Prueba"` (JSON mal formado) | "El texto no es JSON válido (…)" |
+| E3 | `{"id": 100000}` (no es un array) | "El JSON debe ser un array de participantes." |
+| E4 | El JSON de E7 con `"edad": "30"` en el segundo elemento | "Elemento 2: el campo "edad" debe ser numérico." No hay importación parcial: tampoco entra el primer elemento |
+| E5 | El JSON de E7 cambiando el id del segundo a `200000` / a `99` / la fecha a `"10/08/2026"` / la edad a `200` (por separado) | Error de id repetido / id fuera de rango / fecha ISO inválida / rango de edad |
+| E6 | `[]` | "Importados 0 participantes.", sin tarjetas, aviso de lista vacía, estadísticas "Sin datos" y panel "Sin inscripciones" |
+| E7 | `[{"id":200000,"nombre":"Lucía Pérez","edad":30,"tipo":"invitado","modalidad":"online","experiencia":3,"fechaInscripcion":"2026-10-01T10:00:00.000Z"},{"id":200001,"nombre":"Raúl Ortiz","edad":16,"tipo":"estudiante","modalidad":"presencial","experiencia":6.5,"fechaInscripcion":"2026-10-02T09:00:00.000Z"}]` | "Importados 2 participantes."; 2 tarjetas; estadísticas y panel actualizados (más reciente: Raúl Ortiz) |
+
+### 4.6 Panel del evento y mensajes
+
+| Id | Pasos y datos de entrada | Resultado esperado |
+|---|---|---|
+| F1 | Carga inicial | El panel muestra total 3, presenciales 2, online 1 e inscripción más reciente "Elena Belmonte (10 de octubre de 2026 a las 16:00)" |
+| F2 | Hacer un alta, una baja o una importación | El panel se actualiza solo |
+| F3 | Mensaje rechazado en el panel. En la consola de la página principal: `document.getElementById('iframe-panel').contentWindow.postMessage({tipo:'resumen-evento', total:'hola'}, location.origin)` | El panel no cambia y no aparece ningún error en la consola |
+| F4 | Igual que F3 con `{tipo:'resumen-evento', total:2, modalidades:{presencial:1, online:0}, ultimoInscrito:null}` (las cantidades no suman el total) | Se ignora sin cambios |
+| F5 | Mensaje rechazado en la principal: `window.postMessage({tipo:'panel-preparado'}, location.origin)` | Se ignora porque `source` es la propia ventana y no el iframe (se puede comprobar con un punto de interrupción en `recibirMensajeDelPanel`: retorna en la comprobación de `source`) |
+| F6 | En Elements, comprobar el `<iframe>` | Tiene `title="Panel resumen del evento: …"` |
+
+### 4.7 Preferencias y cookies
+
+| Id | Pasos y datos de entrada | Resultado esperado |
+|---|---|---|
+| G1 | Tema **Oscuro**, tamaño **Grande** → **Guardar preferencias** | Se aplican al momento; mensaje "Preferencias aplicadas y guardadas durante 30 días."; en DevTools → Application → Cookies aparecen `dwec_tema=oscuro` y `dwec_tamano=grande` con Path `/`, SameSite `Lax` y caducidad a 30 días |
+| G2 | Recargar (F5) | Se mantienen tema oscuro y letra grande, y los desplegables muestran esas opciones |
+| G3 | Cookies alteradas: en Application editar `dwec_tema` a `<script>` y `dwec_tamano` a `%E0%A4%A`; recargar | Tema claro y tamaño normal, sin errores en consola |
+| G4 | Cookies ausentes: borrar ambas en Application; recargar | Tema claro y tamaño normal |
+| G5 | Con preferencias guardadas, pulsar **Restablecer** | Mensaje "Cookies eliminadas. Se aplica tema claro y tamaño normal."; las cookies desaparecen de Application |
+| G6 | Cookies bloqueadas: en Chrome, icono del candado → Configuración del sitio → bloquear cookies; recargar y guardar oscuro | Se aplica el tema oscuro y el mensaje indica que solo dura esta visita |
+
+### 4.8 Ayuda
+
+| Id | Pasos y datos de entrada | Resultado esperado |
+|---|---|---|
+| H1 | **Abrir ayuda** | Se abre `ayuda.html` en una ventana nueva con las instrucciones, el idioma, el origen (p. ej. `http://localhost:8000`) y la resolución de pantalla |
+| H2 | Con la ayuda abierta, pulsar otra vez **Abrir ayuda** | No se abre otra ventana: se enfoca la existente y aparece "La ayuda ya estaba abierta." |
+| H3 | **Cerrar ayuda** | La ventana se cierra; si se pulsa otra vez aparece "La ayuda no está abierta." |
+| H4 | Bloquear ventanas emergentes para el sitio (candado → Configuración del sitio → Ventanas emergentes: Bloquear) y pulsar **Abrir ayuda** | Aviso "El navegador ha bloqueado la ventana de ayuda…" |
 
 ---
 
-## 7. Código Fuente Completo del Proyecto
+## 5. Contenidos aplicados de las sesiones 1 a 7
 
-A continuación se adjunta el código fuente íntegro de todos los archivos que componen la aplicación:
+### Sesión 1 · Arquitectura cliente-servidor y carga de scripts
 
-### Archivo: index.html
-```html
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestor de Participantes - Evento Tecnológico</title>
-  <link rel="stylesheet" href="css/estilos.css">
-  <script src="js/logica.js" defer></script>
-  <script src="js/cookies.js" defer></script>
-  <script src="js/preferencias.js" defer></script>
-  <script src="js/app.js" defer></script>
-</head>
-<body>
-  <header>
-    <h1>Gestor de Participantes de Eventos</h1>
-    <nav>
-      <button id="btn-ayuda" type="button">Abrir Ayuda</button>
-      <button id="btn-cerrar-ayuda" type="button">Cerrar Ayuda</button>
-    </nav>
-  </header>
+- **Cliente-servidor:** el navegador (cliente) pide por HTTP `index.html` al servidor estático; al analizarlo pide la hoja de estilos, los scripts y `panel.html` (iframe), que a su vez pide su CSS y `panel.js` (ver la evidencia de red). El servidor solo entrega archivos; validación, cálculos y DOM se ejecutan en el cliente.
+- **Carga del script:** los cuatro scripts de `index.html` llevan `defer`. Se descargan en paralelo sin bloquear el análisis del HTML y se ejecutan **en orden** (`logica.js` → `cookies.js` → `preferencias.js` → `app.js`) cuando el DOM está completo y antes de `DOMContentLoaded`. Ese orden importa: `app.js` usa funciones de los anteriores. La inicialización se registra con `DOMContentLoaded`, y además se comprueba que existan los elementos (`obtenerElementos` y comprobaciones `!== null`).
 
-  <main>
-    <section class="caja-seccion">
-      <h2>Preferencias Visuales</h2>
-      <form id="form-preferencias">
-        <label for="select-tema">Tema Visual:</label>
-        <select id="select-tema">
-          <option value="claro">Claro</option>
-          <option value="oscuro">Oscuro</option>
-        </select>
+### Sesión 2 · Variables, tipos, ámbitos y hoisting
 
-        <label for="select-tamano">Tamaño de Fuente:</label>
-        <select id="select-tamano">
-          <option value="normal">Normal</option>
-          <option value="grande">Grande</option>
-        </select>
+- Solo `const` y `let`; no hay `var`.
+- **Ámbitos:** las declaraciones de nivel superior de scripts clásicos comparten el ámbito global (por eso `app.js` ve `TIPOS_VALIDOS` o `validarParticipante` de `logica.js`). `let` y `const` tienen ámbito de bloque: la `i` de cada `for` solo existe dentro del bucle. Los receptores de eventos son clausuras que acceden a `participantes` y `ventanaAyuda`.
+- **Hoisting:** las declaraciones `function` se elevan completas. Por eso, al principio de `app.js`, `window.addEventListener('message', recibirMensajeDelPanel)` puede usar una función declarada más abajo. `let` y `const` también se elevan, pero quedan en la *zona muerta temporal* hasta su línea: usar `participantes` antes de su declaración lanzaría `ReferenceError` (con `var` daría `undefined` sin avisar).
+- Tipos primitivos (`string`, `number`, `boolean`, `null`, `undefined`) y comprobaciones con `typeof` y `Array.isArray` en toda la validación.
 
-        <button type="submit">Guardar Preferencias</button>
-        <button id="btn-restablecer-pref" type="button">Restablecer</button>
-      </form>
-      <p id="msg-preferencias" role="status"></p>
-    </section>
+### Sesión 3 · Conversiones, operadores y decisiones
 
-    <section class="caja-seccion">
-      <h2>Alta de Participante</h2>
-      <form id="form-alta" novalidate>
-        <label for="nombre">Nombre Completo:</label>
-        <input id="nombre" name="nombre" required>
+- **Conversiones explícitas:** los valores del formulario y de las cookies llegan como texto; se comprueba la cadena vacía y el formato antes de usar `Number`, y nunca se depende de conversiones implícitas. Siempre `===` y `!==`.
+- **Truthy y falsy:** son falsy `false`, `0`, `-0`, `0n`, `""`, `null`, `undefined` y `NaN`; todo lo demás es truthy. Por eso no se escribe `if (!edad)`: la edad `0` es válida y sería falsy. Se usan comparaciones explícitas (`=== null`, `texto === ''`, `Number.isFinite`).
+- **`||` frente a `??`:** `a || b` devuelve `b` si `a` es *falsy*; `a ?? b` solo si `a` es `null` o `undefined`. En `renderizarEstadisticas` se usa `e.edadMinima ?? 'Sin datos'`: si la edad mínima es 0, `||` mostraría "Sin datos" por error, mientras que `??` muestra 0 y solo pone "Sin datos" cuando el valor es `null`.
+- **Decisiones reales:** `if/else` en `clasificarExperiencia` y `actualizarAvisoListado`; ternario en `clasificarEdad`, `formatearMedia` y `generarId`; `switch` en el conteo por tipo (`calcularEstadisticas`) y en la validación del tema (`normalizarTema`).
 
-        <label for="edad">Edad:</label>
-        <input id="edad" type="number" name="edad" min="0" max="120" required>
+### Sesión 4 · Bucles
 
-        <label for="tipo">Tipo de Participante:</label>
-        <select id="tipo" name="tipo">
-          <option value="estudiante">Estudiante</option>
-          <option value="profesional">Profesional</option>
-          <option value="invitado">Invitado</option>
-        </select>
+- `for` clásico: búsqueda del primer menor con `break`; localización del índice al borrar con `break`; recorrido de la colección en `validarColeccion`.
+- `for...of`: estadísticas, renderizado, filtros, cookies, mensajes de error.
+- `do...while`: `generarId`, con límite de `MAX_INTENTOS_ID` para no bloquear nunca la pestaña.
+- `continue`: experiencia media presencial (salta a los online). `break`: primer menor, comprobación de id repetido y búsqueda del índice a borrar.
 
-        <label for="modalidad">Modalidad:</label>
-        <select id="modalidad" name="modalidad">
-          <option value="presencial">Presencial</option>
-          <option value="online">Online</option>
-        </select>
+### Sesión 5 · Objetos predefinidos
 
-        <label for="experiencia">Años de Experiencia (0-10):</label>
-        <input id="experiencia" type="number" step="0.1" name="experiencia" required>
+- `String`: `trim`, `normalize`, `replace`, `toLowerCase`, `includes`, `startsWith`, `slice`, `split`.
+- `Number`: `Number()`, `Number.isInteger`, `Number.isFinite`, `Number.isNaN`, `toFixed(2)`.
+- `Math`: `Math.random` y `Math.floor` (ids), `Math.round` (segundos de la cookie).
+- `Date`: `new Date().toISOString()` al inscribir, `toLocaleString('es-ES', …)` al mostrar, `getTime` para comparar y validar.
+- `JSON`: `stringify` (exportar) y `parse` dentro de `try/catch` (importar).
+- `navigator.language`, `location.origin`, `screen.width` y `screen.height` en la ayuda (solo descriptivos).
 
-        <button type="submit">Registrar Participante</button>
-      </form>
-      <div id="errores-alta" class="mensajes-error" role="alert"></div>
-    </section>
+### Sesión 6 · DOM
 
-    <section class="caja-seccion">
-      <h2>Filtros y Búsqueda</h2>
-      <input id="busqueda-nombre" placeholder="Buscar por nombre...">
-      <select id="filtro-modalidad">
-        <option value="todas">Todas las modalidades</option>
-        <option value="presencial">Presencial</option>
-        <option value="online">Online</option>
-      </select>
-    </section>
+- Selección: `getElementById` (elementos fijos), `querySelector` (span de error de un campo concreto, control con `[name=…]`, primer campo inválido para enfocarlo), `querySelectorAll` (limpiar todos los errores y `aria-invalid`, contar las tarjetas visibles).
+- Creación con `createElement`, `textContent` y `append`; eliminación con `remove()`; estados con `classList` (`add`, `remove`, `toggle`) y atributos (`dataset`, `setAttribute`, `removeAttribute`). Eventos `submit`, `click`, `input`, `change`, `message` y `DOMContentLoaded`; `preventDefault` en los formularios; delegación de eventos con `closest`.
 
-    <section class="caja-seccion">
-      <h2>Listado de Inscritos</h2>
-      <div id="contenedor-tarjetas"></div>
-      <p id="msg-sin-coincidencias" class="oculto">No se encontraron participantes con los filtros seleccionados.</p>
-    </section>
+### Sesión 7 · Ventanas, iframes, mensajería, cookies y restricciones entre orígenes
 
-    <section class="caja-seccion">
-      <h2>Estadísticas Globales</h2>
-      <div id="panel-stats"></div>
-    </section>
+- Ventanas (`window.open`, `closed`, `focus`, `close`), iframe con `postMessage`, y cookies con sus atributos (apartados 3.9 a 3.11).
+- **Restricciones entre orígenes:** un origen es la terna esquema + host + puerto. La *política del mismo origen* impide que una página lea el DOM, las cookies o el almacenamiento de otro origen. `postMessage` es el canal seguro entre contextos: el emisor fija `targetOrigin` para que el mensaje solo se entregue a ese origen (con `"*"` cualquiera podría recibirlo), y el receptor comprueba `event.origin` y `event.source` porque cualquier ventana puede enviarle mensajes. Aunque aquí todas las páginas son del mismo origen, la página principal no rellena el iframe directamente, como pide el enunciado. `SameSite=Lax` evita que las cookies viajen en peticiones de otros sitios (salvo navegaciones de nivel superior) y `Secure` las limita a HTTPS. Con `file://` el origen es opaco (`null`), por eso la práctica se sirve por HTTP.
 
-    <section class="caja-seccion">
-      <h2>Intercambio de Datos (JSON)</h2>
-      <textarea id="json-area" rows="6" placeholder="Pega o exporta el JSON aquí..."></textarea>
-      <div>
-        <button id="btn-exportar" type="button">Exportar JSON</button>
-        <button id="btn-importar" type="button">Importar JSON</button>
-      </div>
-      <p id="msg-json-estado" role="status"></p>
-    </section>
+---
 
-    <section class="caja-seccion">
-      <h2>Panel del Evento (Iframe)</h2>
-      <iframe id="iframe-panel" src="panel.html" title="Panel de Resumen del Evento"></iframe>
-    </section>
-  </main>
-</body>
-</html>
+## 6. Evidencias de depuración y de red
+
+> Las capturas se guardan en la carpeta `docs/`. Los datos descritos debajo son los que se observan al reproducir los pasos.
+
+### 6.1 Punto de interrupción (Sources)
+
+![Punto de interrupción en validarParticipante](docs/breakpoint.png)
+
+- **Pasos:** DevTools → Sources → `js/logica.js` → punto de interrupción en la primera línea de `validarParticipante` (la que empieza por `if (datos === null`). En el formulario: nombre `Luis`, edad `18abc`, experiencia `5` → **Inscribir participante**.
+- **Qué se observa:** la ejecución se detiene en `validarParticipante`; la pila (*Call Stack*) es `validarParticipante` ← `gestionarAlta`. En *Scope* `datos` vale `{nombre: "Luis", edad: "18abc", tipo: "estudiante", modalidad: "presencial", experiencia: "5"}`: todos los valores llegan como **texto**. En la consola del depurador, `Number(datos.edad)` devuelve `NaN`.
+- **Explicación:** confirma que los datos del formulario no son fiables y no son números. Avanzando con *Step over* hasta `const edad = convertirNumero(datos.edad)` se ve que `edad` vale `NaN` porque el patrón rechaza `"18abc"`, y que se añade `errores.edad`.
+
+### 6.2 Petición en la pestaña Network
+
+![Peticiones en la pestaña Network](docs/network.png)
+
+- **Pasos:** DevTools → Network → marcar *Disable cache* → recargar `index.html`.
+- **Qué se observa:** todas las peticiones son `GET` con estado `200`: `index.html` (text/html), `css/estilos.css` (text/css), `js/logica.js`, `js/cookies.js`, `js/preferencias.js`, `js/app.js` (text/javascript), `panel.html` (text/html, iniciador: el iframe) y `js/panel.js`. Sin *Disable cache*, la segunda petición de `estilos.css` (la del iframe) aparece como `304 Not Modified` porque el navegador reutiliza su copia.
+- **Explicación:** muestra el modelo cliente-servidor del apartado 5: el servidor solo entrega archivos estáticos del mismo origen (`localhost:8000`). No hay errores 404 ni peticiones a otros orígenes. Las altas, bajas, importaciones y mensajes **no generan peticiones**, porque todo ocurre en el navegador.
+
+---
+
+> El enlace debe ser el de *Compartir* (`/share/…`), no el de la barra de direcciones (`/app/…`), porque ese solo lo puede abrir el propietario.
+
+### Decisiones tomadas con ayuda de la IA
+
+| Consulta (chat) | Propuesta de la IA | Decisión y motivo |
+|---|---|---|
+| Gemini: estructura de los archivos | Calcular estadísticas leyendo el DOM | **Descartada.** La lógica se aisló en `logica.js` con funciones que reciben parámetros, como exige el enunciado; así se pueden probar desde la consola |
+| Gemini: generación de tarjetas | Concatenar HTML con `innerHTML` | **Descartada** por el riesgo de XSS con nombres introducidos por el usuario; se usan `createElement`, `textContent` y `append` |
+| Gemini: envío del resumen al iframe | Usar `setTimeout` para esperar al iframe | **Descartada.** Se implementó el aviso `panel-preparado`: el iframe avisa cuando su receptor ya está instalado |
+| Claude: revisión con pruebas en el navegador | Detectó que `Number(null)` es `0` y que se aceptaban `null`, `true` y `"30"` en el JSON | **Aceptada.** Se añadió `convertirNumero` (comprueba el tipo, la cadena vacía y el formato antes de `Number`) y la comprobación de tipos en `validarColeccion` |
+| Claude: revisión | `Date.parse` acepta `"10/08/2026"` y `"2026"` | **Aceptada.** `esFechaIsoValida` exige el formato de `toISOString` y la comprobación de ida y vuelta |
+| Claude: revisión | El panel vaciaba su contenido y lanzaba `TypeError` con mensajes incompletos; la principal no comprobaba `source` | **Aceptada.** `esResumenValido` valida todo antes de tocar el DOM; `recibirMensajeDelPanel` comprueba `source === iframe.contentWindow` y la estructura exacta |
+| Claude: revisión | Faltaban `querySelector` y `querySelectorAll`; la baja volvía a pintar todo el listado | **Aceptada.** Se usan para los errores por campo y para contar las tarjetas; la baja usa `tarjeta.remove()` |
+| Claude: revisión | Las medias se devolvían como texto con `toFixed` | **Aceptada.** `calcularEstadisticas` devuelve números o `null` y la interfaz formatea |
+| Claude: revisión | Con `type="number"`, Chrome no deja escribir `18abc` y Firefox entrega una cadena vacía, así que ese caso no llegaba nunca a la validación JavaScript | **Aceptada.** Edad y experiencia pasan a `type="text"` con `inputmode`, y la validación depende solo de JavaScript |
