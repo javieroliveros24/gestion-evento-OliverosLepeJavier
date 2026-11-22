@@ -1,5 +1,5 @@
 # Gestor de participantes de un evento
-
+LINK IA: https://gemini.google.com/app/c0e348d9ec138928
 **Autor:** Javier Oliveros Lepe
 **Módulo:** Desarrollo Web en Entorno Cliente (DWEC) · Unidad didáctica 1 (sesiones 1 a 7) · Curso 2026-2027
 
