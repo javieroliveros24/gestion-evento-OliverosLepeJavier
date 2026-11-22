@@ -1,39 +1,78 @@
-    /**
-     * Aplica o retira las clases CSS del body según las opciones seleccionadas.
-     * Utiliza el método toggle() con un segundo parámetro booleano para mayor seguridad:
-     * si la condición es true añade la clase, si es false la elimina.
-     */
-    function aplicarPreferenciasVisuales(tema, tamano) {
-    // Si el tema es 'oscuro', añade la clase 'oscuro' al <body>; de lo contrario, la quita.
-    document.body.classList.toggle('oscuro', tema === 'oscuro');
-    
-    // Si el tamaño es 'grande', añade la clase 'grande' al <body>; de lo contrario, la quita.
-    document.body.classList.toggle('grande', tamano === 'grande');
-    }
+'use strict';
 
-    /**
-     * Recupera las preferencias guardadas en las cookies al cargar la página.
-     * Si no existen cookies previa o contienen datos no válidos, aplica los valores por defecto.
-     */
-    function cargarPreferenciasIniciales() {
-    // Intentamos leer las dos cookies independientes mediante la función de cookies.js
-    const temaGuardado = leerCookie('dwec_tema');
-    const tamanoGuardado = leerCookie('dwec_tamano');
+/*
+ * preferencias.js
+ * Tema (claro/oscuro) y tamaño de letra (normal/grande) guardados en dos
+ * cookies independientes durante 30 días.
+ */
 
-    // Validamos el valor recuperado con un operador ternario:
-    // Si el valor de la cookie es estrictamente 'oscuro' lo mantenemos, si no, usamos 'claro' por defecto.
-    const temaFinal = temaGuardado === 'oscuro' ? 'oscuro' : 'claro';
-    
-    // Lo mismo para el tamaño: solo aceptamos 'grande', cualquier otro valor o null vuelve a 'normal'.
-    const tamanoFinal = tamanoGuardado === 'grande' ? 'grande' : 'normal';
+const COOKIE_TEMA = 'dwec_tema';
+const COOKIE_TAMANO = 'dwec_tamano';
+const TEMA_POR_DEFECTO = 'claro';
+const TAMANO_POR_DEFECTO = 'normal';
+const DIAS_PREFERENCIAS = 30;
 
-    // Sincronizamos los desplegables (<select>) del formulario para que reflejen la opción activa
-    const comboTema = document.getElementById('select-tema');
-    const comboTamano = document.getElementById('select-tamano');
+/** Devuelve el tema si es una opción válida; si no, el tema por defecto. */
+function normalizarTema(valor) {
+  switch (valor) {
+    case 'claro':
+    case 'oscuro':
+      return valor;
+    default:
+      return TEMA_POR_DEFECTO;
+  }
+}
 
-    if (comboTema) comboTema.value = temaFinal;
-    if (comboTamano) comboTamano.value = tamanoFinal;
+/** Devuelve el tamaño si es una opción válida; si no, el tamaño por defecto. */
+function normalizarTamano(valor) {
+  return valor === 'normal' || valor === 'grande' ? valor : TAMANO_POR_DEFECTO;
+}
 
-    // Aplicamos los cambios visuales en el DOM con los valores validados
-    aplicarPreferenciasVisuales(temaFinal, tamanoFinal);
-    }
+/** Aplica las clases al <body> y sincroniza los desplegables del formulario. */
+function aplicarPreferencias(tema, tamano) {
+  document.body.classList.toggle('oscuro', tema === 'oscuro');
+  document.body.classList.toggle('grande', tamano === 'grande');
+
+  const selectorTema = document.getElementById('select-tema');
+  const selectorTamano = document.getElementById('select-tamano');
+  if (selectorTema !== null) {
+    selectorTema.value = tema;
+  }
+  if (selectorTamano !== null) {
+    selectorTamano.value = tamano;
+  }
+}
+
+/** Lee las cookies al cargar la página, valida los valores y los aplica. */
+function cargarPreferenciasIniciales() {
+  const tema = normalizarTema(leerCookie(COOKIE_TEMA));
+  const tamano = normalizarTamano(leerCookie(COOKIE_TAMANO));
+  aplicarPreferencias(tema, tamano);
+}
+
+/**
+ * Aplica las preferencias y trata de guardarlas. Devuelve true si al volver a
+ * leer las cookies contienen exactamente lo guardado.
+ */
+function guardarPreferencias(temaElegido, tamanoElegido) {
+  const tema = normalizarTema(temaElegido);
+  const tamano = normalizarTamano(tamanoElegido);
+  aplicarPreferencias(tema, tamano);
+
+  guardarCookie(COOKIE_TEMA, tema, DIAS_PREFERENCIAS);
+  guardarCookie(COOKIE_TAMANO, tamano, DIAS_PREFERENCIAS);
+
+  return leerCookie(COOKIE_TEMA) === tema && leerCookie(COOKIE_TAMANO) === tamano;
+}
+
+/**
+ * Elimina ambas cookies y aplica los valores predeterminados. Devuelve true si
+ * al volver a leerlas ya no existen.
+ */
+function restablecerPreferencias() {
+  borrarCookie(COOKIE_TEMA);
+  borrarCookie(COOKIE_TAMANO);
+  aplicarPreferencias(TEMA_POR_DEFECTO, TAMANO_POR_DEFECTO);
+
+  return leerCookie(COOKIE_TEMA) === null && leerCookie(COOKIE_TAMANO) === null;
+}
