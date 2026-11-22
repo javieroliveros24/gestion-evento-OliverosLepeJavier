@@ -1,70 +1,101 @@
-    // Guardamos el origen esperado (protocolo + host + puerto) a partir de la ubicación actual.
-    // Al ejecutarse ambos en el mismo servidor local HTTP, location.origin coincide en ambas páginas.
-    const origenEsperado = location.origin;
+'use strict';
 
-    /**
-     * Escuchador global para interceptar los mensajes asíncronos enviados vía postMessage.
-     */
-    window.addEventListener('message', function (evento) {
-    // 1. COMPROBACIÓN DE SEGURIDAD (Origen):
-    // Verificamos que el mensaje provenga del mismo origen para prevenir ataques entre sitios.
-    if (evento.origin !== origenEsperado) return;
+/*
+ * panel.js (se ejecuta dentro del iframe)
+ * Recibe el resumen por postMessage, lo valida por completo y construye su
+ * propio DOM. La página principal nunca accede a este documento.
+ */
 
-    // 2. COMPROBACIÓN DE SEGURIDAD (Emisor):
-    // Comprobamos que la ventana que envió el mensaje sea la ventana padre (la página principal).
-    if (evento.source !== window.parent) return;
+const ORIGEN_PANEL = location.origin;
+const PATRON_ISO_PANEL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-    // 3. VALIDACIÓN DE LA ESTRUCTURA DE DATOS:
-    // Verificamos que los datos recibidos existan, sean un objeto y coincida el tipo de acción.
-    const datos = evento.data;
-    if (datos === null || typeof datos !== 'object') return;
-    if (datos.tipo !== 'resumen-evento') return;
+function esObjeto(valor) {
+  return valor !== null && typeof valor === 'object' && !Array.isArray(valor);
+}
 
-    // Localizamos el contenedor interno del iframe donde pintaremos los datos
-    const contenedor = document.getElementById('contenido-panel');
-    contenedor.textContent = ''; // Limpiamos el contenido previo de forma segura
+function esEnteroNoNegativo(valor) {
+  return Number.isInteger(valor) && valor >= 0;
+}
 
-    // Si no hay participantes registrados en la aplicación
-    if (datos.total === 0) {
-        contenedor.textContent = 'Sin inscripciones';
-        return;
-    }
+/** Comprueba estructura, tipos y valores del mensaje antes de usarlo. */
+function esResumenValido(datos) {
+  if (!esObjeto(datos) || datos.tipo !== 'resumen-evento') {
+    return false;
+  }
+  if (!esEnteroNoNegativo(datos.total) || !esObjeto(datos.modalidades)) {
+    return false;
+  }
 
-    // 4. CONSTRUCCIÓN SEGURA DEL DOM DEL PANEL:
-    // Creamos la lista y sus elementos con createElement() y textContent para no usar innerHTML.
-    const ul = document.createElement('ul');
+  const presencial = datos.modalidades.presencial;
+  const online = datos.modalidades.online;
+  if (!esEnteroNoNegativo(presencial) || !esEnteroNoNegativo(online) || presencial + online !== datos.total) {
+    return false;
+  }
 
-    // Elemento: Total de participantes
-    const liTotal = document.createElement('li');
-    liTotal.textContent = 'Total inscritos: ' + datos.total;
+  if (datos.total === 0) {
+    return datos.ultimoInscrito === null;
+  }
 
-    // Elemento: Desglose por modalidad presencial
-    const liPresencial = document.createElement('li');
-    liPresencial.textContent = 'Presenciales: ' + datos.modalidades.presencial;
+  const ultimo = datos.ultimoInscrito;
+  if (!esObjeto(ultimo) || typeof ultimo.nombre !== 'string' || typeof ultimo.fechaInscripcion !== 'string') {
+    return false;
+  }
+  const longitud = ultimo.nombre.trim().length;
+  if (longitud < 2 || longitud > 60 || !PATRON_ISO_PANEL.test(ultimo.fechaInscripcion)) {
+    return false;
+  }
+  return !Number.isNaN(new Date(ultimo.fechaInscripcion).getTime());
+}
 
-    // Elemento: Desglose por modalidad online
-    const liOnline = document.createElement('li');
-    liOnline.textContent = 'Online: ' + datos.modalidades.online;
+/** Construye el contenido del panel a partir de un resumen ya validado. */
+function pintarResumen(datos) {
+  const contenedor = document.getElementById('contenido-panel');
+  if (contenedor === null) {
+    return;
+  }
+  contenedor.textContent = '';
 
-    // Elemento: Participante con la fecha de inscripción más reciente
-    const liReciente = document.createElement('li');
-    if (datos.ultimoInscrito) {
-        // Formateamos la fecha ISO recibida al formato local español
-        const fechaObj = new Date(datos.ultimoInscrito.fecha);
-        const fechaFormat = fechaObj.toLocaleString('es-ES');
-        liReciente.textContent = 'Último alta: ' + datos.ultimoInscrito.nombre + ' (' + fechaFormat + ')';
-    } else {
-        liReciente.textContent = 'Último alta: Sin datos';
-    }
+  if (datos.total === 0) {
+    const vacio = document.createElement('p');
+    vacio.classList.add('sin-datos');
+    vacio.textContent = 'Sin inscripciones';
+    contenedor.append(vacio);
+    return;
+  }
 
-    // Insertamos todos los ítems en la lista y la lista dentro del contenedor principal
-    ul.append(liTotal, liPresencial, liOnline, liReciente);
-    contenedor.append(ul);
-    });
+  const lista = document.createElement('dl');
+  lista.classList.add('lista-datos');
+  const filas = [
+    ['Total de inscritos', String(datos.total)],
+    ['Presenciales', String(datos.modalidades.presencial)],
+    ['Online', String(datos.modalidades.online)],
+    ['Inscripción más reciente', `${datos.ultimoInscrito.nombre} (${new Date(datos.ultimoInscrito.fechaInscripcion).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })})`]
+  ];
 
-    /**
-     * PROTOCOLO DE INICIALIZACIÓN:
-     * Tan pronto como este script se carga e instala su receptor de mensajes,
-     * avisa a la página principal (window.parent) de que está preparado para recibir datos.
-     */
-    window.parent.postMessage({ tipo: 'iframe-preparado' }, origenEsperado);
+  for (const [termino, valor] of filas) {
+    const dt = document.createElement('dt');
+    const dd = document.createElement('dd');
+    dt.textContent = termino;
+    dd.textContent = valor;
+    lista.append(dt, dd);
+  }
+  contenedor.append(lista);
+}
+
+window.addEventListener('message', function (evento) {
+  if (evento.origin !== ORIGEN_PANEL) {
+    return;
+  }
+  if (evento.source !== window.parent) {
+    return;
+  }
+  if (!esResumenValido(evento.data)) {
+    return; // mensajes inválidos: se ignoran sin tocar la interfaz
+  }
+  pintarResumen(evento.data);
+});
+
+// Con el receptor ya instalado, avisa a la página principal de que está listo.
+if (window.parent !== window) {
+  window.parent.postMessage({ tipo: 'panel-preparado' }, ORIGEN_PANEL);
+}
