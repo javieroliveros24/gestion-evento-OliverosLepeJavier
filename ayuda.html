@@ -1,24 +1,39 @@
-    <!doctype html>
-    <html lang="es">
-    <head>
-    <meta charset="utf-8">
-    <title>Ayuda de la Aplicación</title>
-    <link rel="stylesheet" href="css/estilos.css">
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-        const info = document.getElementById("info-navegador");
-        info.textContent = `Idioma: ${navigator.language} | Origen: ${location.origin} | Pantalla: ${screen.width}x${screen.height}`;
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:,">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ayuda del gestor de participantes</title>
+  <link rel="stylesheet" href="css/estilos.css">
+  <script src="js/ayuda.js" defer></script>
+</head>
+<body class="pagina-ayuda">
+  <h1>Ayuda del gestor de participantes</h1>
 
-        document.getElementById("btn-cerrar").addEventListener("click", function() {
-            window.close();
-        });
-        });
-    </script>
-    </head>
-    <body style="padding: 1.5rem; font-family: sans-serif;">
-    <h1>Manual de Usuario</h1>
-    <p>Esta aplicación permite gestionar la inscripción a eventos tecnológicos.</p>
-    <div id="info-navegador" style="background: #eef; padding: 0.8rem; border-radius: 4px; margin: 1rem 0;"></div>
-    <button id="btn-cerrar">Cerrar Ayuda</button>
-    </body>
-    </html>
+  <section>
+    <h2>Cómo se usa</h2>
+    <ul>
+      <li><strong>Alta:</strong> rellene nombre (2 a 60 caracteres), edad (entero de 0 a 120), tipo, modalidad y experiencia (0 a 10, con punto para los decimales) y pulse «Inscribir participante». Si algo es incorrecto verá el error junto al campo y no se inscribirá a nadie.</li>
+      <li><strong>Baja:</strong> pulse «Dar de baja» en la tarjeta y confirme. Si cancela, no cambia nada.</li>
+      <li><strong>Búsqueda y filtro:</strong> escriba parte del nombre (da igual mayúsculas o tildes) y elija la modalidad. Se pueden combinar.</li>
+      <li><strong>Estadísticas:</strong> se calculan siempre sobre todos los participantes, aunque el listado esté filtrado.</li>
+      <li><strong>JSON:</strong> «Exportar» escribe la colección en el área de texto; «Importar» la sustituye solo si todos los datos son válidos.</li>
+      <li><strong>Panel del evento:</strong> muestra el total, las modalidades y la última inscripción; se actualiza solo.</li>
+      <li><strong>Preferencias:</strong> tema y tamaño de letra se guardan 30 días en cookies. «Restablecer» las borra.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Datos del navegador</h2>
+    <p class="nota">Información meramente descriptiva; no se usa para validar ni para decisiones de seguridad.</p>
+    <dl class="lista-datos">
+      <dt>Idioma</dt><dd id="dato-idioma">—</dd>
+      <dt>Origen</dt><dd id="dato-origen">—</dd>
+      <dt>Pantalla</dt><dd id="dato-pantalla">—</dd>
+    </dl>
+  </section>
+
+  <button id="btn-cerrar" type="button">Cerrar esta ventana</button>
+</body>
+</html>
